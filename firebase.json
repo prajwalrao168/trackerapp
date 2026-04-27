@@ -1,0 +1,39 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "trackerapp-4431b",
+          "appId": "1:1048129569498:android:8dec08846318947963dbe3",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "trackerapp-4431b",
+          "configurations": {
+            "android": "1:1048129569498:android:8dec08846318947963dbe3",
+            "ios": "1:1048129569498:ios:2b875865109221af63dbe3",
+            "macos": "1:1048129569498:ios:2b875865109221af63dbe3",
+            "web": "1:1048129569498:web:df496c21b8204f4663dbe3",
+            "windows": "1:1048129569498:web:8366075b0a5e147e63dbe3"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
