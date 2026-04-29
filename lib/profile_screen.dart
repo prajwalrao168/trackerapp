@@ -6,6 +6,7 @@ import 'app_theme.dart';
 import 'list_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -35,12 +36,143 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  Future<bool> reauthenticate() async {
+    if (user == null) return false;
+    bool isGoogle = user!.providerData.any((p) => p.providerId == 'google.com');
+
+    if (isGoogle) {
+      try {
+        final googleuser = await GoogleSignIn.instance.authenticate();
+        final googleauth = googleuser.authentication;
+        if (googleauth != null) {
+          final credential = GoogleAuthProvider.credential(idToken: googleauth.idToken);
+          await user!.reauthenticateWithCredential(credential);
+          return true;
+        }
+      } catch (e) {
+        return false;
+      }
+    } else {
+      final passwordController = TextEditingController();
+      final bool? result = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: kSurface,
+          title: Text('Re-authenticate', style: TextStyle(color: kTextPrimary)),
+          content: TextField(
+            controller: passwordController,
+            obscureText: true,
+            style: TextStyle(color: kTextPrimary),
+            decoration: InputDecoration(
+              hintText: 'Enter your password',
+              hintStyle: TextStyle(color: kTextSecondary),
+              filled: true,
+              fillColor: kBg,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Confirm', style: TextStyle(color: kAccent)),
+            ),
+          ],
+        ),
+      );
+
+      if (result == true && passwordController.text.isNotEmpty) {
+        try {
+          final credential = EmailAuthProvider.credential(email: user!.email!, password: passwordController.text);
+          await user!.reauthenticateWithCredential(credential);
+          return true;
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Re-authentication failed.'), backgroundColor: Colors.redAccent));
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  Future<void> startNameEdit() async {
+    if (user == null) return;
+    try {
+      final userdoc = await FirebaseFirestore.instance.collection('users').doc(user!.uid).get();
+      final lastChange = userdoc.data()?['last_username_change'] as Timestamp?;
+      
+      if (lastChange != null) {
+        final diff = DateTime.now().difference(lastChange.toDate());
+        if (diff.inMinutes < 2) {
+          final remaining = 120 - diff.inSeconds;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Please wait $remaining seconds before changing username again.'),
+              backgroundColor: Colors.redAccent,
+            ));
+          }
+          return;
+        }
+      }
+      setState(() => iseditingname = true);
+    } catch (e) {
+      setState(() => iseditingname = true);
+    }
+  }
+
   Future<void> updatename() async {
-    if (namecontroller.text.trim().isNotEmpty) {
-      await user?.updateDisplayName(namecontroller.text.trim());
+    final newname = namecontroller.text.trim();
+    if (newname.isEmpty) {
+      setState(() => iseditingname = false);
+      return;
+    }
+
+    final bool isAuth = await reauthenticate();
+    if (!isAuth) return;
+
+    if (!mounted) return;
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Confirm Username', style: TextStyle(color: kTextPrimary)),
+        content: RichText(
+          text: TextSpan(
+            style: TextStyle(color: kTextSecondary, fontSize: 16),
+            children: [
+              const TextSpan(text: 'Do you want to confirm your new username as '),
+              TextSpan(text: newname, style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              const TextSpan(text: ' or edit again?'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Edit Again', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Confirm', style: TextStyle(color: kAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await user?.updateDisplayName(newname);
+      await FirebaseFirestore.instance.collection('users').doc(user?.uid).set({
+        'username': newname,
+        'last_username_change': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      
       setState(() {
         iseditingname = false;
       });
+      await user?.reload();
     }
   }
 
@@ -49,15 +181,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.remove('sessiontoken');
     await FirebaseAuth.instance.signOut();
     if (!kIsWeb) {
+      try {
+        await GoogleSignIn.instance.disconnect();
+      } catch (_) {}
       await GoogleSignIn.instance.signOut();
     }
     
-    // FIX: Clear the entire navigation stack and push to Login
+    // FIX: Pop to the root route. The StreamBuilder in main.dart will automatically
+    // detect the sign-out and display the LoginScreen.
     if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
@@ -133,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         IconButton(
                           icon: Icon(Icons.edit_rounded, color: kTextSecondary, size: 18),
-                          onPressed: () => setState(() => iseditingname = true),
+                          onPressed: startNameEdit,
                         )
                       ],
                     ),

@@ -16,7 +16,10 @@ import 'main_screen.dart';
 import 'verification_screen.dart';
 import 'disabled_screen.dart';
 import 'proxy_keepalive.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
+import 'username_screen.dart';
+import 'constants.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // FIX #1 — Removed: await dotenv.load(fileName: ".env");
@@ -26,6 +29,12 @@ void main() async {
   );
 
   FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+
+  if (!kIsWeb) {
+    await GoogleSignIn.instance.initialize(
+      serverClientId: kGoogleWebClientId,
+    );
+  }
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -121,8 +130,12 @@ class MediaTrackerApp extends StatelessWidget {
 
                   final data = usersnap.data!.data() as Map<String, dynamic>?;
 
-                  if (data?['isallowed'] == false) {
+                  if (data?['isallowed'] != true) {
                     return const DisabledScreen();
+                  }
+
+                  if (data?['username'] == null || data!['username'].toString().trim().isEmpty) {
+                    return const UsernameScreen();
                   }
 
                   return const MainScreen();

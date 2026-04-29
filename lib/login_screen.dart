@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isloading = false;
   String errormessage = '';
 
+
   @override
   void dispose() {
     emailcontroller.dispose();
@@ -92,15 +93,36 @@ class _LoginScreenState extends State<LoginScreen> {
               email: email,
               password: password,
             );
-            // Send the verification email for the new user
             await usercredential.user!.sendEmailVerification();
+            await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).set({
+              'email': usercredential.user!.email,
+              'isallowed': true,
+            });
+            return;
           } on FirebaseAuthException catch (signUpError) {
-            // If sign up fails because email exists, it means they just typed the wrong password!
             if (signUpError.code == 'email-already-in-use') {
               setState(() {
-                errormessage = 'Incorrect password for this email.';
+                errormessage = 'This mail is already registered.';
                 isloading = false;
               });
+              if (!mounted) return;
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  backgroundColor: kSurface,
+                  title: Text('Account Exists', style: TextStyle(color: kTextPrimary)),
+                  content: Text(
+                    'This mail is already registered.',
+                    style: TextStyle(color: kTextSecondary),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text('OK', style: TextStyle(color: kAccent)),
+                    ),
+                  ],
+                ),
+              );
               return;
             }
             rethrow;
@@ -118,9 +140,17 @@ class _LoginScreenState extends State<LoginScreen> {
       // own authorization flag. This field should only be managed by an admin
       // via Cloud Functions or the Firebase Console. Add a Firestore Security
       // Rule to deny client writes to this field.
-      await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).set({
-        'email': usercredential.user!.email,
-      }, SetOptions(merge: true));
+      final userdoc = await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).get();
+      if (!userdoc.exists) {
+        await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).set({
+          'email': usercredential.user!.email,
+          'isallowed': true,
+        });
+      } else {
+        await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).set({
+          'email': usercredential.user!.email,
+        }, SetOptions(merge: true));
+      }
 
       // NO ROUTING HERE! main.dart handles it automatically.
 
@@ -153,22 +183,45 @@ class _LoginScreenState extends State<LoginScreen> {
         final googleprovider = GoogleAuthProvider();
         usercredential = await FirebaseAuth.instance.signInWithPopup(googleprovider);
       } else {
-        final googlesignin = GoogleSignIn.instance;
-        await googlesignin.initialize(
-          // FIX #1 — Hardcoded public client ID instead of reading from .env
-          serverClientId: kGoogleWebClientId,
-        );
-        final googleuser = await googlesignin.authenticate();
-        if (googleuser == null) {
-          if (!mounted) return;
-          setState(() => isloading = false);
-          return;
-        }
+
+        // ignore: await_only_futures
+        final googleuser = await GoogleSignIn.instance.authenticate();
         final googleauth = await googleuser.authentication;
         final credential = GoogleAuthProvider.credential(
           idToken: googleauth.idToken,
         );
         usercredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+        // Explicitly block Google Sign-In if this account has an Email/Password attached
+        if (usercredential.user!.providerData.any((p) => p.providerId == 'password')) {
+          await FirebaseAuth.instance.signOut();
+          if (!kIsWeb) {
+            try {
+              await GoogleSignIn.instance.disconnect();
+            } catch (_) {}
+            await GoogleSignIn.instance.signOut();
+          }
+          if (!mounted) return;
+          setState(() => isloading = false);
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: kSurface,
+              title: Text('Account Exists', style: TextStyle(color: kTextPrimary)),
+              content: Text(
+                'This email is already registered with a password. Please sign in using your email and password instead.',
+                style: TextStyle(color: kTextSecondary),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('OK', style: TextStyle(color: kAccent)),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
       }
 
       // FIX #24 — Same expanded allowlist as email login
@@ -182,29 +235,87 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!alloweddomains.contains(domain)) {
         await FirebaseAuth.instance.currentUser?.delete();
         await FirebaseAuth.instance.signOut();
-        if (!kIsWeb) await GoogleSignIn.instance.signOut();
+        if (!kIsWeb) {
+          try {
+            await GoogleSignIn.instance.disconnect();
+          } catch (_) {}
+          await GoogleSignIn.instance.signOut();
+        }
         if (!mounted) return;
-        setState(() {
-          errormessage = 'This email provider is not supported. Please use Gmail, Outlook, Yahoo, ProtonMail, iCloud, or another major provider.';
-          isloading = false;
-        });
+        setState(() => isloading = false);
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: kSurface,
+            title: Text('Sign-In Denied', style: TextStyle(color: kTextPrimary)),
+            content: Text(
+              'This email provider is not supported.\n\nPlease sign in with a Gmail, Outlook, Yahoo, ProtonMail, or iCloud account.',
+              style: TextStyle(color: kTextSecondary),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK', style: TextStyle(color: Colors.grey)),
+              ),
+            ],
+          ),
+        );
         return;
       }
+
+      // Note: We cannot manually check for duplicate accounts here because Firestore security rules
+      // block querying by email, and Firebase Auth removed fetchSignInMethodsForEmail.
+      // To prevent duplicate accounts, the user MUST enable "Link accounts that use the same email"
+      // in the Firebase Console.
 
       // FIX #6 — Don't set isallowed from the client. Only write email.
       // For Google login, we preserve existing isallowed value if the doc exists.
       final userdoc = await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).get();
-      await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).set({
-        'email': usercredential.user!.email,
-        // Preserve existing isallowed if the document already exists.
-        // For brand-new users, isallowed won't be set here — set it via
-        // a Cloud Function onCreate trigger or manually in the Console.
-        if (userdoc.exists && userdoc.data()?['isallowed'] != null)
-          'isallowed': userdoc.data()!['isallowed'],
-      }, SetOptions(merge: true));
+      if (!userdoc.exists) {
+        await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).set({
+          'email': usercredential.user!.email,
+          'isallowed': true,
+        });
+      } else {
+        await FirebaseFirestore.instance.collection('users').doc(usercredential.user!.uid).set({
+          'email': usercredential.user!.email,
+        }, SetOptions(merge: true));
+      }
 
       // NO ROUTING HERE! main.dart handles it.
 
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'account-exists-with-different-credential') {
+        setState(() => isloading = false);
+        if (!kIsWeb) {
+          try {
+            await GoogleSignIn.instance.disconnect();
+          } catch (_) {}
+          await GoogleSignIn.instance.signOut();
+        }
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: kSurface,
+            title: Text('Account Exists', style: TextStyle(color: kTextPrimary)),
+            content: Text(
+              'This email is already registered with a password. Please sign in using your email and password instead.',
+              style: TextStyle(color: kTextSecondary),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('OK', style: TextStyle(color: kAccent)),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      setState(() {
+        errormessage = e.message ?? e.toString().replaceAll(RegExp(r'\[.*?\] '), '');
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -243,7 +354,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.1),
+                      color: Colors.redAccent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.redAccent),
                     ),
