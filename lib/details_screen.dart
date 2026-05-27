@@ -54,8 +54,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
     try {
       if (widget.mediatype == 'anime') {
-        final r1 = await http.get(Uri.parse('https://api.jikan.moe/v4/anime/${widget.apiid}'));
-        final r2 = await http.get(Uri.parse('https://api.jikan.moe/v4/anime/${widget.apiid}/characters'));
+        final r1 = await http.get(Uri.parse('https://api.jikan.moe/v4/anime/${widget.apiid}')).timeout(const Duration(seconds: 15));
+        // Wait 400ms between Jikan requests to avoid 429 rate limiting
+        await Future.delayed(const Duration(milliseconds: 400));
+        final r2 = await http.get(Uri.parse('https://api.jikan.moe/v4/anime/${widget.apiid}/characters')).timeout(const Duration(seconds: 15));
         
         if (r1.statusCode == 200) {
           final d = json.decode(r1.body)['data'];
@@ -85,7 +87,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
         final r = await http.get(
           Uri.parse('$kProxyBaseUrl/tmdb/${widget.subtype}/${widget.apiid}?append_to_response=credits'),
           headers: {'X-API-Key': kProxyApiKey},
-        );
+        ).timeout(const Duration(seconds: 15));
         if (r.statusCode == 200) {
           final d = json.decode(r.body);
           if (mounted) {
@@ -105,7 +107,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
       } else if (widget.mediatype == 'game') {
         // FreeToGame goes through the generic proxy (no API key needed for GET /)
         final rawurl = 'https://www.freetogame.com/api/game?id=${widget.apiid}';
-        final r = await http.get(Uri.parse('$kProxyBaseUrl/?url=${Uri.encodeComponent(rawurl)}'));
+        final r = await http.get(Uri.parse('$kProxyBaseUrl/?url=${Uri.encodeComponent(rawurl)}')).timeout(const Duration(seconds: 15));
         if (r.statusCode == 200) {
           final d = json.decode(r.body);
           if (mounted) {
@@ -158,7 +160,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
             if (totalprogress == 0 && widget.apiid != 0 && !isfetching) {
               isfetching = true;
               if (widget.mediatype == 'anime') {
-                http.get(Uri.parse('https://api.jikan.moe/v4/anime/${widget.apiid}')).then((res) {
+                http.get(Uri.parse('https://api.jikan.moe/v4/anime/${widget.apiid}')).timeout(const Duration(seconds: 15)).then((res) {
                   if (res.statusCode == 200) {
                     final data = json.decode(res.body)['data'];
                     if (context.mounted) {
@@ -177,7 +179,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 http.get(
                   Uri.parse('$kProxyBaseUrl/tmdb/tv/${widget.apiid}'),
                   headers: {'X-API-Key': kProxyApiKey},
-                ).then((res) {
+                ).timeout(const Duration(seconds: 15)).then((res) {
                   if (res.statusCode == 200) {
                     final data = json.decode(res.body);
                     if (context.mounted) {
@@ -366,7 +368,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           Expanded(
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.redAccent.withOpacity(0.1), foregroundColor: Colors.redAccent, elevation: 0,
+                                backgroundColor: Colors.redAccent.withValues(alpha: 0.1), foregroundColor: Colors.redAccent, elevation: 0,
                                 padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                               onPressed: () {
@@ -407,7 +409,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
           },
         );
       },
-    ).then((_) => notescontroller.dispose());
+    ).whenComplete(() => notescontroller.dispose());
   }
 
   @override
@@ -492,7 +494,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 10)),
+                                BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, 10)),
                               ],
                             ),
                             child: ClipRRect(

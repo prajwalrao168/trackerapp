@@ -34,7 +34,7 @@ class ProxyKeepAlive {
 
   static Future<void> _ping() async {
     try {
-      await http.get(Uri.parse('$kProxyBaseUrl/health'));
+      await http.get(Uri.parse('$kProxyBaseUrl/health')).timeout(const Duration(seconds: 15));
     } catch (e) {
       // Silently ignore — this is just a keep-alive, not critical
     }

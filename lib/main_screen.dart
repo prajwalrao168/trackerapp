@@ -19,6 +19,8 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int bottomindex = 0;
   int categoryindex = 0;
+  // Track which tabs have been visited so we don't build them until needed
+  final Set<int> _visitedTabs = {0}; // Tab 0 (Anime) is always loaded
 
   final List<String> categories = ['ANIME', 'CINEMA', 'GAMES'];
 
@@ -93,7 +95,10 @@ class _MainScreenState extends State<MainScreen> {
               itemBuilder: (context, index) {
                 final isselected = categoryindex == index;
                 return GestureDetector(
-                  onTap: () => setState(() => categoryindex = index),
+                  onTap: () => setState(() {
+                    categoryindex = index;
+                    _visitedTabs.add(index);
+                  }),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOutQuart,
@@ -124,8 +129,15 @@ class _MainScreenState extends State<MainScreen> {
               index: categoryindex,
               children: [
                 AnimeListScreen(isMyList: ismylist),
-                MoviesListScreen(ismylist: ismylist),
-                GamesListScreen(ismylist: ismylist),
+                // Only build these tabs when they've been visited at least once
+                if (_visitedTabs.contains(1))
+                  MoviesListScreen(ismylist: ismylist)
+                else
+                  const SizedBox.shrink(),
+                if (_visitedTabs.contains(2))
+                  GamesListScreen(ismylist: ismylist)
+                else
+                  const SizedBox.shrink(),
               ],
             ),
           ),
@@ -166,7 +178,7 @@ class _FloatingBottomNav extends StatelessWidget {
           child: Container(
             height: 70,
             decoration: BoxDecoration(
-              color: kSurface.withOpacity(0.8),
+              color: kSurface.withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: kBorder, width: 1.5),
             ),
@@ -187,7 +199,7 @@ class _FloatingBottomNav extends StatelessWidget {
                           curve: Curves.easeOutQuart,
                           padding: EdgeInsets.all(selected ? 8 : 4),
                           decoration: BoxDecoration(
-                            color: selected ? kAccent.withOpacity(0.15) : Colors.transparent,
+                            color: selected ? kAccent.withValues(alpha: 0.15) : Colors.transparent,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(

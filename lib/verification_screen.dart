@@ -33,6 +33,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
             isloading = false;
           });
         }
+      } else {
+        // Verified! The StreamBuilder in main.dart will navigate us away.
+        // Reset loading in case there's a brief delay.
+        if (mounted) {
+          setState(() => isloading = false);
+        }
       }
     } catch (e) {
       // If Firebase throws a 400 error or network glitch, catch it and stop loading!
@@ -91,7 +97,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: errormessage.contains('resent') ? Colors.greenAccent.withOpacity(0.1) : Colors.redAccent.withOpacity(0.1),
+                    color: errormessage.contains('resent') ? Colors.greenAccent.withValues(alpha: 0.1) : Colors.redAccent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: errormessage.contains('resent') ? Colors.greenAccent : Colors.redAccent),
                   ),
@@ -104,7 +110,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
               Container(
                 decoration: BoxDecoration(
                   boxShadow: [
-                    BoxShadow(color: kAccent.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 5)),
+                    BoxShadow(color: kAccent.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, 5)),
                   ],
                 ),
                 child: ElevatedButton(
@@ -128,7 +134,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
               ),
               TextButton(
                 onPressed: isloading ? null : () => FirebaseAuth.instance.signOut(),
-                child: Text('CANCEL', style: TextStyle(color: Colors.redAccent.withOpacity(0.8), fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                child: Text('CANCEL', style: TextStyle(color: Colors.redAccent.withValues(alpha: 0.8), fontWeight: FontWeight.bold, letterSpacing: 1.5)),
               ),
             ],
           ),

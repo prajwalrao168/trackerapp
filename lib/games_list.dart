@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -60,7 +61,7 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
       sortClause = 'sort first_release_date desc;';
     }
 
-    return 'fields name, summary, cover.url; limit $limit; offset $offset; $whereClause; $sortClause';
+    return 'fields name, summary, cover.url; limit $limit; offset $offset; $whereClause $sortClause';
   }
 
   Future<void> fetchgames() async {
@@ -71,19 +72,19 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
     
     try {
       String query = _buildApicalypseQuery(100, currentOffset);
-      debugPrint('SENDING QUERY: $query'); // So you can see the exact query being sent
+      if (kDebugMode) debugPrint('SENDING QUERY: $query');
 
       final response = await http.post(
         Uri.parse('$kProxyBaseUrl/igdb/games'),
         headers: { 'Content-Type': 'application/json', 'X-API-Key': kProxyApiKey },
         body: json.encode({ 'query': query }),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final decodeddata = json.decode(response.body);
         
         // THIS IS THE SMOKING GUN! Check the console for this print statement:
-        debugPrint('IGDB SUCCESS: Found ${decodeddata.length} games!');
+        if (kDebugMode) debugPrint('IGDB SUCCESS: Found ${decodeddata.length} games!');
 
         if (mounted) {
           setState(() {
@@ -93,11 +94,11 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
           });
         }
       } else {
-        debugPrint('IGDB HTTP Error: ${response.statusCode} - ${response.body}');
+        if (kDebugMode) debugPrint('IGDB HTTP Error: ${response.statusCode} - ${response.body}');
         if (mounted) setState(() { isloading = false; });
       }
     } catch (e) {
-      debugPrint('FETCH GAMES CRASH: $e'); 
+      if (kDebugMode) debugPrint('FETCH GAMES CRASH: $e'); 
       if (mounted) setState(() { isloading = false; });
     }
   }
@@ -113,7 +114,7 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
         Uri.parse('$kProxyBaseUrl/igdb/games'),
         headers: { 'Content-Type': 'application/json', 'X-API-Key': kProxyApiKey },
         body: json.encode({ 'query': query }),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final decodeddata = json.decode(response.body);
@@ -125,11 +126,11 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
           });
         }
       } else {
-        debugPrint('IGDB FetchMore HTTP Error: ${response.statusCode} - ${response.body}');
+        if (kDebugMode) debugPrint('IGDB FetchMore HTTP Error: ${response.statusCode} - ${response.body}');
         if (mounted) setState(() => isloadingmore = false);
       }
     } catch (e) {
-      debugPrint('FETCH MORE CRASH: $e');
+      if (kDebugMode) debugPrint('FETCH MORE CRASH: $e');
       if (mounted) setState(() => isloadingmore = false);
     }
   }

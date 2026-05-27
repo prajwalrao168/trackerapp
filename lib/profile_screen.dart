@@ -7,7 +7,7 @@ import 'list_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'login_screen.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -44,7 +44,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       try {
         final googleuser = await GoogleSignIn.instance.authenticate();
         final googleauth = googleuser.authentication;
-        if (googleauth != null) {
+        if (googleauth.idToken != null) {
           final credential = GoogleAuthProvider.credential(idToken: googleauth.idToken);
           await user!.reauthenticateWithCredential(credential);
           return true;
@@ -54,6 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } else {
       final passwordController = TextEditingController();
+      try {
       final bool? result = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -94,6 +95,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         }
       }
+      } finally {
+        passwordController.dispose();
+      }
     }
     return false;
   }
@@ -127,6 +131,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final newname = namecontroller.text.trim();
     if (newname.isEmpty) {
       setState(() => iseditingname = false);
+      return;
+    }
+
+    // Username validation — same rules as register/username screens
+    if (newname.length < 3 || newname.length > 20) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Username must be 3-20 characters.'), backgroundColor: Colors.redAccent),
+        );
+      }
+      return;
+    }
+
+    if (!RegExp(r'^[a-zA-Z0-9_ ]+$').hasMatch(newname)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Username can only contain letters, numbers, underscores, and spaces.'), backgroundColor: Colors.redAccent),
+        );
+      }
       return;
     }
 
@@ -177,20 +200,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> handlelogout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('sessiontoken');
-    await FirebaseAuth.instance.signOut();
-    if (!kIsWeb) {
-      try {
-        await GoogleSignIn.instance.disconnect();
-      } catch (_) {}
-      await GoogleSignIn.instance.signOut();
-    }
-    
-    // FIX: Pop to the root route. The StreamBuilder in main.dart will automatically
-    // detect the sign-out and display the LoginScreen.
+    // Pop to root first so the user sees instant feedback
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+
+    // Clear local session
+    SharedPreferences.getInstance().then((prefs) => prefs.remove('sessiontoken'));
+
+    // Firebase sign-out is fast and triggers StreamBuilder → LoginScreen
+    await FirebaseAuth.instance.signOut();
+
+    // Google cleanup is slow (network call) — fire-and-forget in background
+    if (!kIsWeb) {
+      GoogleSignIn.instance.disconnect().catchError((_) => null);
+      GoogleSignIn.instance.signOut().catchError((_) => null);
     }
   }
 
@@ -209,7 +233,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cinemacount = items.where((i) => i.mediatype == 'cinema').length;
     final gamescount = items.where((i) => i.mediatype == 'game').length;
 
-    final completionrate = totalitems > 0 ? (completeditems / totalitems) : 0.0;
+    final double completionrate = totalitems > 0 ? (completeditems / totalitems) : 0.0;
 
     return Scaffold(
       backgroundColor: kBg,
@@ -322,15 +346,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   buildstatcard('Total', totalitems.toString(), kSurface, kTextPrimary),
                   const SizedBox(width: 12),
-                  buildstatcard('Completed', completeditems.toString(), Colors.purpleAccent.withOpacity(0.1), Colors.purpleAccent),
+                  buildstatcard('Completed', completeditems.toString(), Colors.purpleAccent.withValues(alpha: 0.1), Colors.purpleAccent),
                 ],
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  buildstatcard('Active', activeitems.toString(), Colors.greenAccent.withOpacity(0.1), Colors.greenAccent),
+                  buildstatcard('Active', activeitems.toString(), Colors.greenAccent.withValues(alpha: 0.1), Colors.greenAccent),
                   const SizedBox(width: 12),
-                  buildstatcard('Planning', planningitems.toString(), kAccent.withOpacity(0.1), kAccent),
+                  buildstatcard('Planning', planningitems.toString(), kAccent.withValues(alpha: 0.1), kAccent),
                 ],
               ),
               const SizedBox(height: 40),

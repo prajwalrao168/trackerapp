@@ -110,6 +110,7 @@ class _AnimeGridState extends State<AnimeGrid>
   bool isloading = true;
   bool isloadingmore = false;
   bool hasError = false;
+  bool hasmore = true;
 
   int currentpage = 1;
   String _activeSortFilter = '';
@@ -158,7 +159,7 @@ class _AnimeGridState extends State<AnimeGrid>
   Future<http.Response?> safeGet(Uri url, {int retries = 2}) async {
     for (int i = 0; i <= retries; i++) {
       try {
-        final res = await http.get(url);
+        final res = await http.get(url).timeout(const Duration(seconds: 15));
 
         if (res.statusCode == 200) return res;
 
@@ -186,6 +187,7 @@ class _AnimeGridState extends State<AnimeGrid>
         hasError = false;
         animedata = [];
         currentpage = 1;
+        hasmore = true;
       });
     }
     await _initialFetch();
@@ -230,7 +232,7 @@ class _AnimeGridState extends State<AnimeGrid>
   }
 
   Future<void> _fetchMore() async {
-    if (isloadingmore) return;
+    if (isloadingmore || !hasmore) return;
 
     setState(() => isloadingmore = true);
 
@@ -243,11 +245,14 @@ class _AnimeGridState extends State<AnimeGrid>
 
       if (response != null && response.statusCode == 200) {
         final decodeddata = json.decode(response.body);
+        final newItems = decodeddata['data'] ?? [];
+        final hasNextPage = decodeddata['pagination']?['has_next_page'] ?? false;
 
         if (mounted) {
           setState(() {
-            animedata.addAll(decodeddata['data']);
+            animedata.addAll(newItems);
             currentpage++;
+            hasmore = hasNextPage && newItems.isNotEmpty;
           });
         }
       }
@@ -263,6 +268,7 @@ class _AnimeGridState extends State<AnimeGrid>
 
   @override
   void dispose() {
+    scrollcontroller.removeListener(_onScroll);
     scrollcontroller.dispose();
     super.dispose();
   }

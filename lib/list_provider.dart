@@ -63,8 +63,8 @@ class TrackedItem {
         (e) => e.name == map['status'], 
         orElse: () => TrackingStatus.planning,
       ),
-      startdate: map['startDate'] != null ? DateTime.parse(map['startDate']) : (map['startdate'] != null ? DateTime.parse(map['startdate']) : null),
-      enddate: map['endDate'] != null ? DateTime.parse(map['endDate']) : (map['enddate'] != null ? DateTime.parse(map['enddate']) : null),
+      startdate: DateTime.tryParse(map['startDate'] ?? map['startdate'] ?? ''),
+      enddate: DateTime.tryParse(map['endDate'] ?? map['enddate'] ?? ''),
       mediatype: map['mediaType'] ?? map['mediatype'] ?? '',
       subtype: map['subType'] ?? map['subtype'] ?? '',
       currentprogress: map['currentprogress'] ?? 0,
@@ -111,6 +111,9 @@ class ListProvider extends ChangeNotifier {
 
   void _fetchItems(String uid) {
     _itemsSubscription?.cancel();
+    // FIX #13 — Clear old user's data immediately so it doesn't
+    // flash on screen while the new subscription is loading
+    itemsdata.clear();
     try {
       _itemsSubscription = FirebaseFirestore.instance
           .collection('users')

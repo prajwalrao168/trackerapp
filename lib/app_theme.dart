@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // FIX #20 — KNOWN LIMITATION: These are mutable top-level globals that get
 // modified by ThemeProvider._updateTheme(). This works because main.dart wraps
@@ -36,14 +37,39 @@ class ThemeProvider extends ChangeNotifier {
   Color get currentAccent => accentColors[_accentIndex];
   int get accentIndex => _accentIndex;
 
+  /// Call this once when the app starts (e.g. in main.dart before runApp).
+  /// Loads saved AMOLED mode and accent color from SharedPreferences.
+  Future<void> loadSavedPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isAmoled = prefs.getBool('isAmoled') ?? false;
+    _accentIndex = prefs.getInt('accentIndex') ?? 0;
+
+    // Make sure accentIndex is valid (in case user had more colors before)
+    if (_accentIndex < 0 || _accentIndex >= accentColors.length) {
+      _accentIndex = 0;
+    }
+
+    _updateTheme();
+  }
+
   void toggleAmoled() {
     _isAmoled = !_isAmoled;
     _updateTheme();
+    _savePreferences(); // Save to disk
   }
 
   void setAccent(int index) {
     _accentIndex = index;
     _updateTheme();
+    _savePreferences(); // Save to disk
+  }
+
+  /// Saves current theme choices to SharedPreferences so they
+  /// survive app restarts.
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isAmoled', _isAmoled);
+    await prefs.setInt('accentIndex', _accentIndex);
   }
 
   void _updateTheme() {

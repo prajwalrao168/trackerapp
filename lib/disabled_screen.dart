@@ -33,7 +33,7 @@ class DisabledScreen extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   boxShadow: [
-                    BoxShadow(color: Colors.redAccent.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10)),
+                    BoxShadow(color: Colors.redAccent.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, 10)),
                   ],
                 ),
                 child: ElevatedButton(

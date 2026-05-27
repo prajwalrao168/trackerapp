@@ -37,6 +37,21 @@ class _UsernameScreenState extends State<UsernameScreen> {
       return;
     }
 
+    if (username.length > 20) {
+      setState(() {
+        errormessage = 'Username must be 20 characters or less.';
+      });
+      return;
+    }
+
+    // Only allow letters, numbers, underscores, and spaces
+    if (!RegExp(r'^[a-zA-Z0-9_ ]+$').hasMatch(username)) {
+      setState(() {
+        errormessage = 'Username can only contain letters, numbers, underscores, and spaces.';
+      });
+      return;
+    }
+
     setState(() {
       isloading = true;
       errormessage = '';

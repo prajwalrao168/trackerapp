@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 //          your project from unauthorized access. See:
 //          https://firebase.google.com/docs/app-check
 import 'firebase_options.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'app_theme.dart';
 import 'list_provider.dart';
 import 'login_screen.dart';
@@ -20,6 +21,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import 'username_screen.dart';
 import 'constants.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // FIX #1 — Removed: await dotenv.load(fileName: ".env");
@@ -28,9 +30,25 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+  // FIX #3 — App Check: Ensures Firestore/Auth requests come from YOUR app,
+  // not from scripts or cloned projects.
+  // Uses Play Integrity on real Android devices, Debug provider during development.
+  await FirebaseAppCheck.instance.activate(
+    providerAndroid: kDebugMode
+        ? const AndroidDebugProvider()
+        : const AndroidPlayIntegrityProvider(),
+    webProvider: ReCaptchaV3Provider('6LduYd8sAAAAAL2LrBqh49AKNsk1Cn4yLzxHDZqF'),
+  );
 
-  if (!kIsWeb) {
+  try {
+    FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+  } catch (_) {}
+
+  if (kIsWeb) {
+    await GoogleSignIn.instance.initialize(
+      clientId: kGoogleWebClientId,
+    );
+  } else {
     await GoogleSignIn.instance.initialize(
       serverClientId: kGoogleWebClientId,
     );
@@ -45,11 +63,16 @@ void main() async {
   );
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
+  // Load saved theme preferences (AMOLED mode, accent color) before
+  // the app renders so the user never sees a flash of the wrong theme.
+  final themeProvider = ThemeProvider();
+  await themeProvider.loadSavedPreferences();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ListProvider(), lazy: true),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider.value(value: themeProvider),
       ],
       child: const MediaTrackerApp(),
     ),
@@ -58,6 +81,29 @@ void main() async {
 
 class MediaTrackerApp extends StatelessWidget {
   const MediaTrackerApp({super.key});
+
+  Widget _buildUserDocStream(User user) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      builder: (context, usersnap) {
+        if (!usersnap.hasData || !usersnap.data!.exists) {
+          return Scaffold(backgroundColor: kBg, body: Center(child: CircularProgressIndicator(color: kAccent)));
+        }
+
+        final data = usersnap.data!.data() as Map<String, dynamic>?;
+
+        if (data?['isallowed'] != true) {
+          return const DisabledScreen();
+        }
+
+        if (data?['username'] == null || data!['username'].toString().trim().isEmpty) {
+          return const UsernameScreen();
+        }
+
+        return const MainScreen();
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,37 +156,15 @@ class MediaTrackerApp extends StatelessWidget {
                 return const LoginScreen();
               }
 
-              // User is logged in — keep the proxy warm
               ProxyKeepAlive.start();
 
               final user = snapshot.data!;
 
-              // Intercept users who haven't verified their email yet
               if (!user.emailVerified && user.providerData.any((p) => p.providerId == 'password')) {
                 return const VerificationScreen();
               }
 
-              return StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
-                builder: (context, usersnap) {
-                  // If the user document hasn't been created yet, show a loader instead of throwing them to login
-                  if (!usersnap.hasData || !usersnap.data!.exists) {
-                    return Scaffold(backgroundColor: kBg, body: Center(child: CircularProgressIndicator(color: kAccent)));
-                  }
-
-                  final data = usersnap.data!.data() as Map<String, dynamic>?;
-
-                  if (data?['isallowed'] != true) {
-                    return const DisabledScreen();
-                  }
-
-                  if (data?['username'] == null || data!['username'].toString().trim().isEmpty) {
-                    return const UsernameScreen();
-                  }
-
-                  return const MainScreen();
-                },
-              );
+              return _buildUserDocStream(user);
             },
           ),
         );

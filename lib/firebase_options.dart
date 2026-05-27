@@ -64,6 +64,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1048129569498',
     projectId: 'trackerapp-4431b',
     storageBucket: 'trackerapp-4431b.firebasestorage.app',
+    androidClientId: '1048129569498-86bnrtf200bh9ao183vicq0spnsohghq.apps.googleusercontent.com',
+    iosClientId: '1048129569498-nnvouctrhk89gh78p5kgqt0ns3hde99p.apps.googleusercontent.com',
     iosBundleId: 'com.example.mediaTracker',
   );
 
@@ -73,6 +75,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1048129569498',
     projectId: 'trackerapp-4431b',
     storageBucket: 'trackerapp-4431b.firebasestorage.app',
+    androidClientId: '1048129569498-86bnrtf200bh9ao183vicq0spnsohghq.apps.googleusercontent.com',
+    iosClientId: '1048129569498-nnvouctrhk89gh78p5kgqt0ns3hde99p.apps.googleusercontent.com',
     iosBundleId: 'com.example.mediaTracker',
   );
 

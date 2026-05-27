@@ -25,11 +25,22 @@ class _SearchScreenState extends State<SearchScreen> {
   int currentpage = 1;
   String searchtype = 'anime';
   Timer? debouncetimer;
+  // FIX #16 — Track whether the text field has content so the
+  // clear button shows/hides instantly on every keystroke.
+  bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
     scrollcontroller.addListener(_onScroll);
+    textcontroller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final hasContent = textcontroller.text.isNotEmpty;
+    if (hasContent != _hasText) {
+      setState(() => _hasText = hasContent);
+    }
   }
 
   void _onScroll() {
@@ -58,7 +69,12 @@ class _SearchScreenState extends State<SearchScreen> {
       http.Response response;
 
       if (searchtype == 'game') {
-        String cleanQuery = query.replaceAll('"', '');
+        // Remove characters that could break/inject into an Apicalypse query
+        String cleanQuery = query.replaceAll(RegExp(r'[";\\\/\n\r]'), '').trim();
+        if (cleanQuery.isEmpty) {
+          setState(() { isloading = false; });
+          return;
+        }
         String apicalypse = 'search "$cleanQuery"; fields name, summary, cover.url; limit 20; offset 0; where version_parent = null;';
         
         response = await http.post(
@@ -66,7 +82,7 @@ class _SearchScreenState extends State<SearchScreen> {
           // FIX #7 — Include API key for authenticated proxy requests
           headers: { 'Content-Type': 'application/json', 'X-API-Key': kProxyApiKey },
           body: json.encode({ 'query': apicalypse }),
-        );
+        ).timeout(const Duration(seconds: 15));
       } else {
         String url = '';
         if (searchtype == 'anime') {
@@ -80,10 +96,10 @@ class _SearchScreenState extends State<SearchScreen> {
         }
         if (searchtype == 'movie') {
           // FIX #7 — Include API key header for proxy requests
-          response = await http.get(Uri.parse(url), headers: {'X-API-Key': kProxyApiKey});
+          response = await http.get(Uri.parse(url), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15));
         } else {
           // Jikan is a free public API — no proxy or API key needed
-          response = await http.get(Uri.parse(url));
+          response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
         }
       }
 
@@ -122,14 +138,18 @@ class _SearchScreenState extends State<SearchScreen> {
 
       if (searchtype == 'game') {
         int offset = (currentpage - 1) * 20;
-        String cleanQuery = textcontroller.text.replaceAll('"', '');
+        String cleanQuery = textcontroller.text.replaceAll(RegExp(r'[";\\\/\n\r]'), '').trim();
+        if (cleanQuery.isEmpty) {
+          setState(() { isfetchingmore = false; });
+          return;
+        }
         String apicalypse = 'search "$cleanQuery"; fields name, summary, cover.url; limit 20; offset $offset; where version_parent = null;';
         
         response = await http.post(
           Uri.parse('$kProxyBaseUrl/igdb/games'),
           headers: { 'Content-Type': 'application/json', 'X-API-Key': kProxyApiKey },
           body: json.encode({ 'query': apicalypse }),
-        );
+        ).timeout(const Duration(seconds: 15));
       } else {
         String url = '';
         if (searchtype == 'anime') {
@@ -140,9 +160,9 @@ class _SearchScreenState extends State<SearchScreen> {
           url = '$kProxyBaseUrl/tmdb/search/movie?query=${Uri.encodeComponent(textcontroller.text)}&page=$currentpage';
         }
         if (searchtype == 'movie') {
-          response = await http.get(Uri.parse(url), headers: {'X-API-Key': kProxyApiKey});
+          response = await http.get(Uri.parse(url), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15));
         } else {
-          response = await http.get(Uri.parse(url));
+          response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
         }
       }
 
@@ -195,6 +215,7 @@ class _SearchScreenState extends State<SearchScreen> {
     scrollcontroller.removeListener(_onScroll);
     scrollcontroller.dispose();
     debouncetimer?.cancel();
+    textcontroller.removeListener(_onTextChanged);
     textcontroller.dispose();
     super.dispose();
   }
@@ -242,7 +263,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               onChanged: _onSearchChanged,
                             ),
                           ),
-                          if (textcontroller.text.isNotEmpty)
+                          if (_hasText)
                             GestureDetector(
                               onTap: () {
                                 debouncetimer?.cancel();
@@ -426,7 +447,7 @@ class _SearchScreenState extends State<SearchScreen> {
           Icon(
             Icons.search_rounded,
             size: 52,
-            color: kTextSecondary.withOpacity(0.2),
+            color: kTextSecondary.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 12),
           Text(

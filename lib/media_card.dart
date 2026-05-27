@@ -68,7 +68,7 @@ class FeaturedCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
+                      color: Colors.black.withValues(alpha: 0.4),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
@@ -424,7 +424,7 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
             if (totalprogress == 0 && item.apiid != 0 && !isfetching) {
               isfetching = true;
               if (item.mediatype == 'anime') {
-                http.get(Uri.parse('https://api.jikan.moe/v4/anime/${item.apiid}')).then((res) {
+                http.get(Uri.parse('https://api.jikan.moe/v4/anime/${item.apiid}')).timeout(const Duration(seconds: 15)).then((res) {
                   if (res.statusCode == 200) {
                     final data = json.decode(res.body)['data'];
                     if (context.mounted) {
@@ -443,7 +443,7 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
                 http.get(
                   Uri.parse('$kProxyBaseUrl/tmdb/tv/${item.apiid}'),
                   headers: {'X-API-Key': kProxyApiKey},
-                ).then((res) {
+                ).timeout(const Duration(seconds: 15)).then((res) {
                   if (res.statusCode == 200) {
                     final data = json.decode(res.body);
                     if (context.mounted) {
@@ -671,7 +671,7 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
           },
         );
       },
-    ).then((_) => notescontroller.dispose());
+    ).whenComplete(() => notescontroller.dispose());
   }
 
   @override
@@ -794,7 +794,9 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
                         : item.imageurl;
 
                     return Dismissible(
-                      key: Key(item.title),
+                      // FIX #12 — Use unique key (same scheme as Firestore doc IDs)
+                      // to prevent crashes when two items share the same title
+                      key: Key('${item.mediatype}_${item.apiid}_${item.title}'),
                       direction: DismissDirection.horizontal,
                       background: Container(
                         decoration: BoxDecoration(
@@ -908,7 +910,7 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
                                     color: getstatuscolor(item.status),
                                     shape: BoxShape.circle,
                                     boxShadow: [
-                                      BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 4),
+                                      BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 4),
                                     ],
                                   ),
                                 ),
@@ -918,7 +920,7 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
                                 left: 6,
                                 child: Icon(
                                   Icons.more_horiz_rounded,
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   size: 16,
                                 ),
                               ),
@@ -944,7 +946,7 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.7),
+                                      color: Colors.black.withValues(alpha: 0.7),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(

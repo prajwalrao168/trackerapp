@@ -109,6 +109,7 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
   List<dynamic> showsdata = [];
   bool isloading = true;
   bool isloadingmore = false;
+  bool hasError = false;
   int currentpage = 1;
   String _activeSortFilter = '';
 
@@ -159,6 +160,7 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
     if (mounted) {
       setState(() {
         isloading = true;
+        hasError = false;
         showsdata = [];
         currentpage = 1;
       });
@@ -169,9 +171,9 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
   Future<void> _initialFetch() async {
     try {
       final responses = await Future.wait([
-        http.get(Uri.parse(_buildEndpoint(1)), headers: {'X-API-Key': kProxyApiKey}),
-        http.get(Uri.parse(_buildEndpoint(2)), headers: {'X-API-Key': kProxyApiKey}),
-        http.get(Uri.parse(_buildEndpoint(3)), headers: {'X-API-Key': kProxyApiKey}),
+        http.get(Uri.parse(_buildEndpoint(1)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(2)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(3)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
       ]);
 
       List<dynamic> combined = [];
@@ -189,7 +191,7 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
         });
       }
     } catch (e) {
-      if (mounted) setState(() => isloading = false);
+      if (mounted) setState(() { isloading = false; hasError = true; });
     }
   }
 
@@ -201,7 +203,7 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
       final response = await http.get(
         Uri.parse(_buildEndpoint(currentpage)),
         headers: {'X-API-Key': kProxyApiKey},
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final decodeddata = json.decode(response.body);
@@ -222,6 +224,7 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
 
   @override
   void dispose() {
+    scrollcontroller.removeListener(_onScroll);
     scrollcontroller.dispose();
     super.dispose();
   }
@@ -240,7 +243,25 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
     }
 
     if (showsdata.isEmpty) {
-      return Center(child: Text('Failed to load.', style: TextStyle(color: kTextSecondary)));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(hasError ? Icons.wifi_off_rounded : Icons.movie_filter_rounded, color: kTextSecondary, size: 48),
+            const SizedBox(height: 12),
+            Text(hasError ? 'Failed to load. Check your connection.' : 'No shows found.', style: TextStyle(color: kTextSecondary, fontSize: 14)),
+            if (hasError) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: kAccent, foregroundColor: Colors.black),
+                onPressed: () { setState(() { hasError = false; isloading = true; }); _initialFetch(); },
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ],
+        ),
+      );
     }
 
     return buildMediaSection(
@@ -276,6 +297,7 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
   List<dynamic> moviesdata = [];
   bool isloading = true;
   bool isloadingmore = false;
+  bool hasError = false;
   int currentpage = 1;
   String _activeSortFilter = '';
 
@@ -326,6 +348,7 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
     if (mounted) {
       setState(() {
         isloading = true;
+        hasError = false;
         moviesdata = [];
         currentpage = 1;
       });
@@ -336,9 +359,9 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
   Future<void> _initialFetch() async {
     try {
       final responses = await Future.wait([
-        http.get(Uri.parse(_buildEndpoint(1)), headers: {'X-API-Key': kProxyApiKey}),
-        http.get(Uri.parse(_buildEndpoint(2)), headers: {'X-API-Key': kProxyApiKey}),
-        http.get(Uri.parse(_buildEndpoint(3)), headers: {'X-API-Key': kProxyApiKey}),
+        http.get(Uri.parse(_buildEndpoint(1)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(2)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(3)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
       ]);
 
       List<dynamic> combined = [];
@@ -356,7 +379,7 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
         });
       }
     } catch (e) {
-      if (mounted) setState(() => isloading = false);
+      if (mounted) setState(() { isloading = false; hasError = true; });
     }
   }
 
@@ -368,7 +391,7 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
       final response = await http.get(
         Uri.parse(_buildEndpoint(currentpage)),
         headers: {'X-API-Key': kProxyApiKey},
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final decodeddata = json.decode(response.body);
@@ -389,6 +412,7 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
 
   @override
   void dispose() {
+    scrollcontroller.removeListener(_onScroll);
     scrollcontroller.dispose();
     super.dispose();
   }
@@ -407,7 +431,25 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
     }
 
     if (moviesdata.isEmpty) {
-      return Center(child: Text('Failed to load.', style: TextStyle(color: kTextSecondary)));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(hasError ? Icons.wifi_off_rounded : Icons.movie_filter_rounded, color: kTextSecondary, size: 48),
+            const SizedBox(height: 12),
+            Text(hasError ? 'Failed to load. Check your connection.' : 'No movies found.', style: TextStyle(color: kTextSecondary, fontSize: 14)),
+            if (hasError) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: kAccent, foregroundColor: Colors.black),
+                onPressed: () { setState(() { hasError = false; isloading = true; }); _initialFetch(); },
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ],
+        ),
+      );
     }
 
     return buildMediaSection(
