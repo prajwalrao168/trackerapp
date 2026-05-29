@@ -49,15 +49,15 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
       // Games released in the last 6 months with ratings — actually trending
       final sixMonthsAgo = (DateTime.now().subtract(const Duration(days: 180)).millisecondsSinceEpoch ~/ 1000);
       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      whereClause = 'where first_release_date != null & first_release_date >= $sixMonthsAgo & first_release_date <= $now & rating_count >= 5';
+      whereClause = 'where first_release_date != null & first_release_date >= $sixMonthsAgo & first_release_date <= $now & rating_count >= 5;';
       sortClause = 'sort rating desc;';
     } else if (sortfilter == 'popular') {
       // All time best: high rating with enough votes to be meaningful
-      whereClause = 'where rating != null & rating_count >= 100';
+      whereClause = 'where rating != null & rating_count >= 100;';
       sortClause = 'sort rating desc;';
     } else if (sortfilter == 'newest') {
       final currentUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      whereClause = 'where first_release_date != null & first_release_date <= $currentUnix';
+      whereClause = 'where first_release_date != null & first_release_date <= $currentUnix;';
       sortClause = 'sort first_release_date desc;';
     }
 
