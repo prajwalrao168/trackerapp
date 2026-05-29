@@ -170,10 +170,11 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
 
   Future<void> _initialFetch() async {
     try {
+      final headers = await getProxyHeaders();
       final responses = await Future.wait([
-        http.get(Uri.parse(_buildEndpoint(1)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
-        http.get(Uri.parse(_buildEndpoint(2)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
-        http.get(Uri.parse(_buildEndpoint(3)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(1)), headers: headers).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(2)), headers: headers).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(3)), headers: headers).timeout(const Duration(seconds: 15)),
       ]);
 
       List<dynamic> combined = [];
@@ -202,7 +203,7 @@ class _TvShowsGridState extends State<TvShowsGrid> with AutomaticKeepAliveClient
     try {
       final response = await http.get(
         Uri.parse(_buildEndpoint(currentpage)),
-        headers: {'X-API-Key': kProxyApiKey},
+        headers: await getProxyHeaders(),
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
@@ -358,10 +359,11 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
 
   Future<void> _initialFetch() async {
     try {
+      final headers = await getProxyHeaders();
       final responses = await Future.wait([
-        http.get(Uri.parse(_buildEndpoint(1)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
-        http.get(Uri.parse(_buildEndpoint(2)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
-        http.get(Uri.parse(_buildEndpoint(3)), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(1)), headers: headers).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(2)), headers: headers).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse(_buildEndpoint(3)), headers: headers).timeout(const Duration(seconds: 15)),
       ]);
 
       List<dynamic> combined = [];
@@ -390,7 +392,7 @@ class _MoviesGridState extends State<MoviesGrid> with AutomaticKeepAliveClientMi
     try {
       final response = await http.get(
         Uri.parse(_buildEndpoint(currentpage)),
-        headers: {'X-API-Key': kProxyApiKey},
+        headers: await getProxyHeaders(),
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {

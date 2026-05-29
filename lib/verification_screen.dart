@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'app_theme.dart';
@@ -12,6 +13,32 @@ class VerificationScreen extends StatefulWidget {
 class _VerificationScreenState extends State<VerificationScreen> {
   bool isloading = false;
   String errormessage = '';
+  int cooldownSeconds = 0;
+  Timer? cooldownTimer;
+
+  @override
+  void dispose() {
+    cooldownTimer?.cancel();
+    super.dispose();
+  }
+
+  void startCooldown() {
+    setState(() => cooldownSeconds = 60);
+    cooldownTimer?.cancel();
+    cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (cooldownSeconds > 0) {
+          cooldownSeconds--;
+        } else {
+          timer.cancel();
+        }
+      });
+    });
+  }
 
   Future<void> checkverification() async {
     setState(() {
@@ -52,6 +79,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   Future<void> resendverification() async {
+    if (cooldownSeconds > 0) return;
     setState(() { isloading = true; errormessage = ''; });
     try {
       await FirebaseAuth.instance.currentUser?.sendEmailVerification();
@@ -59,6 +87,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         errormessage = 'Verification email resent!';
         isloading = false;
       });
+      startCooldown();
     } catch (e) {
       setState(() {
         errormessage = e.toString().replaceAll(RegExp(r'\[.*?\] '), '');
@@ -129,8 +158,15 @@ class _VerificationScreenState extends State<VerificationScreen> {
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: isloading ? null : resendverification,
-                child: Text('RESEND LINK', style: TextStyle(color: kTextSecondary, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                onPressed: (isloading || cooldownSeconds > 0) ? null : resendverification,
+                child: Text(
+                  cooldownSeconds > 0 ? 'RESEND LINK IN ${cooldownSeconds}s' : 'RESEND LINK',
+                  style: TextStyle(
+                    color: cooldownSeconds > 0 ? kTextSecondary.withOpacity(0.5) : kTextSecondary,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
               ),
               TextButton(
                 onPressed: isloading ? null : () => FirebaseAuth.instance.signOut(),

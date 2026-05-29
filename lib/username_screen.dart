@@ -58,6 +58,18 @@ class _UsernameScreenState extends State<UsernameScreen> {
     });
 
     try {
+      final usernameQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('username', isEqualTo: username)
+          .get();
+
+      if (usernameQuery.docs.isNotEmpty) {
+        setState(() {
+          errormessage = 'Username is already taken. Please choose another one.';
+          isloading = false;
+        });
+        return;
+      }
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await user.updateDisplayName(username);

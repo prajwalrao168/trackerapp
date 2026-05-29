@@ -37,8 +37,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     final email = emailcontroller.text.trim();
-    final password = passwordcontroller.text.trim();
-    final confirmpassword = confirmpasswordcontroller.text.trim();
+    final password = passwordcontroller.text;
+    final confirmpassword = confirmpasswordcontroller.text;
     final username = usernamecontroller.text.trim();
 
     if (email.isEmpty || password.isEmpty || confirmpassword.isEmpty || username.isEmpty) {
@@ -106,6 +106,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
+      final usernameQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where('username', isEqualTo: username)
+          .get();
+
+      if (usernameQuery.docs.isNotEmpty) {
+        setState(() {
+          errormessage = 'Username is already taken. Please choose another one.';
+          isloading = false;
+        });
+        return;
+      }
+
       final usercredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,

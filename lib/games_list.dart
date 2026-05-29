@@ -72,19 +72,18 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
     
     try {
       String query = _buildApicalypseQuery(100, currentOffset);
-      if (kDebugMode) debugPrint('SENDING QUERY: $query');
+
 
       final response = await http.post(
         Uri.parse('$kProxyBaseUrl/igdb/games'),
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': kProxyApiKey },
+        headers: await getProxyHeaders(),
         body: json.encode({ 'query': query }),
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final decodeddata = json.decode(response.body);
         
-        // THIS IS THE SMOKING GUN! Check the console for this print statement:
-        if (kDebugMode) debugPrint('IGDB SUCCESS: Found ${decodeddata.length} games!');
+
 
         if (mounted) {
           setState(() {
@@ -94,11 +93,11 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
           });
         }
       } else {
-        if (kDebugMode) debugPrint('IGDB HTTP Error: ${response.statusCode} - ${response.body}');
+
         if (mounted) setState(() { isloading = false; });
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('FETCH GAMES CRASH: $e'); 
+
       if (mounted) setState(() { isloading = false; });
     }
   }
@@ -112,7 +111,7 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
 
       final response = await http.post(
         Uri.parse('$kProxyBaseUrl/igdb/games'),
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': kProxyApiKey },
+        headers: await getProxyHeaders(),
         body: json.encode({ 'query': query }),
       ).timeout(const Duration(seconds: 15));
 
@@ -126,11 +125,11 @@ class _GamesListScreenState extends State<GamesListScreen> with AutomaticKeepAli
           });
         }
       } else {
-        if (kDebugMode) debugPrint('IGDB FetchMore HTTP Error: ${response.statusCode} - ${response.body}');
+
         if (mounted) setState(() => isloadingmore = false);
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('FETCH MORE CRASH: $e');
+
       if (mounted) setState(() => isloadingmore = false);
     }
   }

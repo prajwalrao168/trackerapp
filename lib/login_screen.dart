@@ -60,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     final email = emailcontroller.text.trim();
-    final password = passwordcontroller.text.trim();
+    final password = passwordcontroller.text;
 
     if (email.isEmpty || password.isEmpty) {
       setState(() {
@@ -90,27 +90,23 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       // Backfill email_lookup for existing users
-      await FirebaseFirestore.instance
-          .collection('email_lookup')
-          .doc(email.toLowerCase())
-          .set({
-        'provider': 'password',
-        'uid': usercredential.user!.uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      final emailLookupRef = FirebaseFirestore.instance.collection('email_lookup').doc(email.toLowerCase());
+      final lookupDoc = await emailLookupRef.get();
+      if (!lookupDoc.exists) {
+        await emailLookupRef.set({
+          'provider': 'password',
+          'uid': usercredential.user!.uid,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       // main.dart StreamBuilder handles navigation
 
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'invalid-login-credentials') {
+      if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'invalid-login-credentials' || e.code == 'wrong-password') {
         setState(() {
-          errormessage = 'No account found with this email, or incorrect password. Please check your credentials or create a new account.';
-          isloading = false;
-        });
-      } else if (e.code == 'wrong-password') {
-        setState(() {
-          errormessage = 'Incorrect password. Please try again.';
+          errormessage = 'Incorrect email or password. Please try again.';
           isloading = false;
         });
       } else {
@@ -204,7 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
           if (cleanupEmail.isNotEmpty) {
             await FirebaseFirestore.instance.collection('email_lookup').doc(cleanupEmail).delete();
           }
-          await FirebaseAuth.instance.currentUser?.delete();
+          // Removed currentUser?.delete() here to prevent orphaned auth accounts
+          // if Firestore cleanup failed. User is signed out immediately.
         } catch (e) {
           debugPrint('Cleanup error on domain rejection: $e');
         }
@@ -247,14 +244,15 @@ class _LoginScreenState extends State<LoginScreen> {
       // Register in email_lookup for cross-provider conflict detection
       final userEmail = usercredential.user!.email?.toLowerCase() ?? '';
       if (userEmail.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('email_lookup')
-            .doc(userEmail)
-            .set({
-          'provider': 'google.com',
-          'uid': usercredential.user!.uid,
-          'createdAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        final lookupRef = FirebaseFirestore.instance.collection('email_lookup').doc(userEmail);
+        final lookupDoc = await lookupRef.get();
+        if (!lookupDoc.exists) {
+          await lookupRef.set({
+            'provider': 'google.com',
+            'uid': usercredential.user!.uid,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
       }
 
       // main.dart StreamBuilder handles navigation

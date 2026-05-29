@@ -86,7 +86,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
         // through the generic proxy. The proxy adds the key server-side.
         final r = await http.get(
           Uri.parse('$kProxyBaseUrl/tmdb/${widget.subtype}/${widget.apiid}?append_to_response=credits'),
-          headers: {'X-API-Key': kProxyApiKey},
+          headers: await getProxyHeaders(),
         ).timeout(const Duration(seconds: 15));
         if (r.statusCode == 200) {
           final d = json.decode(r.body);
@@ -105,9 +105,11 @@ class _DetailsScreenState extends State<DetailsScreen> {
           }
         }
       } else if (widget.mediatype == 'game') {
-        // FreeToGame goes through the generic proxy (no API key needed for GET /)
-        final rawurl = 'https://www.freetogame.com/api/game?id=${widget.apiid}';
-        final r = await http.get(Uri.parse('$kProxyBaseUrl/?url=${Uri.encodeComponent(rawurl)}')).timeout(const Duration(seconds: 15));
+        // Use dedicated FreeToGame proxy route (GET / only allows images now)
+        final r = await http.get(
+          Uri.parse('$kProxyBaseUrl/freetogame/${widget.apiid}'),
+          headers: await getProxyHeaders(),
+        ).timeout(const Duration(seconds: 15));
         if (r.statusCode == 200) {
           final d = json.decode(r.body);
           if (mounted) {
@@ -147,7 +149,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
         : (widget.apitotalepisodes ?? 0);
     bool isfetching = false;
 
-    showModalBottomSheet(
+    try {
+      showModalBottomSheet(
       context: context,
       backgroundColor: kSurface,
       isScrollControlled: true,
@@ -176,22 +179,24 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 });
               } else if (widget.mediatype == 'cinema' && widget.subtype == 'tv') {
                 // FIX #1 — Use dedicated proxy route for TV details
-                http.get(
-                  Uri.parse('$kProxyBaseUrl/tmdb/tv/${widget.apiid}'),
-                  headers: {'X-API-Key': kProxyApiKey},
-                ).timeout(const Duration(seconds: 15)).then((res) {
-                  if (res.statusCode == 200) {
-                    final data = json.decode(res.body);
-                    if (context.mounted) {
-                      setsheetstate(() {
-                        totalprogress = data['number_of_episodes'] ?? 0;
-                        isfetching = false;
-                      });
+                getProxyHeaders().then((headers) {
+                  http.get(
+                    Uri.parse('$kProxyBaseUrl/tmdb/tv/${widget.apiid}'),
+                    headers: headers,
+                  ).timeout(const Duration(seconds: 15)).then((res) {
+                    if (res.statusCode == 200) {
+                      final data = json.decode(res.body);
+                      if (context.mounted) {
+                        setsheetstate(() {
+                          totalprogress = data['number_of_episodes'] ?? 0;
+                          isfetching = false;
+                        });
+                      }
                     }
-                  }
-                }).catchError((e) {
-                   debugPrint('TV episodes fetch error: $e');
-                   if (context.mounted) setsheetstate(() => isfetching = false);
+                  }).catchError((e) {
+                     debugPrint('TV episodes fetch error: $e');
+                     if (context.mounted) setsheetstate(() => isfetching = false);
+                  });
                 });
               } else {
                   isfetching = false;
@@ -410,6 +415,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
         );
       },
     ).whenComplete(() => notescontroller.dispose());
+    } catch (e) {
+      notescontroller.dispose();
+    }
   }
 
   @override

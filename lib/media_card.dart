@@ -411,7 +411,8 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
     final TextEditingController notescontroller = TextEditingController(text: item.personalnotes);
     bool isfetching = false;
 
-    showModalBottomSheet(
+    try {
+      showModalBottomSheet(
       context: context,
       backgroundColor: kSurface,
       isScrollControlled: true,
@@ -440,10 +441,11 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
                 });
               } else if (item.mediatype == 'cinema' && item.subtype == 'tv') {
                 // FIX #1 — Use dedicated proxy route instead of passing TMDB key
-                http.get(
-                  Uri.parse('$kProxyBaseUrl/tmdb/tv/${item.apiid}'),
-                  headers: {'X-API-Key': kProxyApiKey},
-                ).timeout(const Duration(seconds: 15)).then((res) {
+                getProxyHeaders().then((headers) {
+                  http.get(
+                    Uri.parse('$kProxyBaseUrl/tmdb/tv/${item.apiid}'),
+                    headers: headers,
+                  ).timeout(const Duration(seconds: 15)).then((res) {
                   if (res.statusCode == 200) {
                     final data = json.decode(res.body);
                     if (context.mounted) {
@@ -455,7 +457,8 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
                   }
                 }).catchError((e) {
                    debugPrint('TV episodes fetch error: $e');
-                   if (context.mounted) setsheetstate(() => isfetching = false);
+                     if (context.mounted) setsheetstate(() => isfetching = false);
+                  });
                 });
               } else {
                   isfetching = false;
@@ -672,6 +675,9 @@ class _SavedMediaGridState extends State<SavedMediaGrid> {
         );
       },
     ).whenComplete(() => notescontroller.dispose());
+    } catch (e) {
+      notescontroller.dispose();
+    }
   }
 
   @override

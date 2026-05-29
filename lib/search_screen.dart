@@ -80,7 +80,7 @@ class _SearchScreenState extends State<SearchScreen> {
         response = await http.post(
           Uri.parse('$kProxyBaseUrl/igdb/games'),
           // FIX #7 — Include API key for authenticated proxy requests
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': kProxyApiKey },
+          headers: await getProxyHeaders(),
           body: json.encode({ 'query': apicalypse }),
         ).timeout(const Duration(seconds: 15));
       } else {
@@ -96,7 +96,7 @@ class _SearchScreenState extends State<SearchScreen> {
         }
         if (searchtype == 'movie') {
           // FIX #7 — Include API key header for proxy requests
-          response = await http.get(Uri.parse(url), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15));
+          response = await http.get(Uri.parse(url), headers: await getProxyHeaders()).timeout(const Duration(seconds: 15));
         } else {
           // Jikan is a free public API — no proxy or API key needed
           response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
@@ -147,7 +147,7 @@ class _SearchScreenState extends State<SearchScreen> {
         
         response = await http.post(
           Uri.parse('$kProxyBaseUrl/igdb/games'),
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': kProxyApiKey },
+          headers: await getProxyHeaders(),
           body: json.encode({ 'query': apicalypse }),
         ).timeout(const Duration(seconds: 15));
       } else {
@@ -160,7 +160,7 @@ class _SearchScreenState extends State<SearchScreen> {
           url = '$kProxyBaseUrl/tmdb/search/movie?query=${Uri.encodeComponent(textcontroller.text)}&page=$currentpage';
         }
         if (searchtype == 'movie') {
-          response = await http.get(Uri.parse(url), headers: {'X-API-Key': kProxyApiKey}).timeout(const Duration(seconds: 15));
+          response = await http.get(Uri.parse(url), headers: await getProxyHeaders()).timeout(const Duration(seconds: 15));
         } else {
           response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
         }

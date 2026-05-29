@@ -153,6 +153,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    final usernameQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .where('username', isEqualTo: newname)
+        .get();
+
+    if (usernameQuery.docs.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Username is already taken. Please choose another one.'), backgroundColor: Colors.redAccent),
+        );
+      }
+      return;
+    }
+
     final bool isAuth = await reauthenticate();
     if (!isAuth) return;
 
@@ -215,6 +229,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!kIsWeb) {
       GoogleSignIn.instance.disconnect().catchError((_) => null);
       GoogleSignIn.instance.signOut().catchError((_) => null);
+    }
+  }
+
+  Future<void> handledeleteaccount() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: kSurface,
+        title: const Text('Delete Account', style: TextStyle(color: Colors.redAccent)),
+        content: Text(
+          'Are you sure you want to permanently delete your account and all tracked data? This cannot be undone.',
+          style: TextStyle(color: kTextSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final bool isAuth = await reauthenticate();
+    if (!isAuth) return;
+
+    try {
+      final uid = user?.uid;
+      final cleanupEmail = user?.email?.toLowerCase() ?? '';
+      
+      if (uid != null) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+      }
+      if (cleanupEmail.isNotEmpty) {
+        await FirebaseFirestore.instance.collection('email_lookup').doc(cleanupEmail).delete();
+      }
+      
+      await user?.delete();
+      
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      SharedPreferences.getInstance().then((prefs) => prefs.remove('sessiontoken'));
+      
+      if (!kIsWeb) {
+        GoogleSignIn.instance.disconnect().catchError((_) => null);
+        GoogleSignIn.instance.signOut().catchError((_) => null);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete account: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
@@ -419,6 +492,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
                       title: const Text('Log Out', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                       onTap: handlelogout,
+                    ),
+                    Divider(color: kBorder, height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+                      title: const Text('Delete Account', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                      onTap: handledeleteaccount,
                     ),
                   ],
                 ),
